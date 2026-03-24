@@ -1,4 +1,4 @@
-<!-- SPDX-FileCopyrightText: 2025 geisserml <geisserml@gmail.com> -->
+<!-- SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com> -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
 # pypdfium2
@@ -60,7 +60,7 @@ _Note, unlike helpers, pypdfium2's setup is not bound by API stability promises,
 + `setuptools`
 + `wheel`, if setuptools is `< v70.1.0`
 
-Python dependencies should be installed automatically, unless `--no-build-isolation` is passed to pip.
+Python dependencies should be automatically installed, unless `--no-build-isolation` is passed to pip.
 
 > [!NOTE]
 > pypdfium2 and its ctypesgen fork are developed in sync, i.e. each pypdfium2 commit ought to be coupled with the then `HEAD` of pypdfium2-ctypesgen.<br>
@@ -93,6 +93,7 @@ If no pre-built binaries are available for your platform, setup will [look for s
 - `-e`: Install in editable mode, so the installation points to the source tree. This way, changes directly take effect without needing to re-install. Recommended for development.
 - `--no-build-isolation`: Do not isolate setup in a virtual env; use the main env instead. This renders `pyproject.toml [build-system]` inactive, so setup deps must be prepared by caller. Useful to install custom versions of setup deps, or as speedup when installing repeatedly.
 - `--no-binary pypdfium2`: Do not use binary *wheels* when installing from PyPI – instead, use the sdist and run setup. Note, this option is improperly named, as pypdfium2's setup will attempt to use binaries all the same. If you want to prevent that, set e.g. `PDFIUM_PLATFORM=fallback` to achieve the same behavior as if there were no pdfium-binaries for the host. Or if you just want to package a source distribution, set `PDFIUM_PLATFORM=sdist`.
+- `--pre` to install a beta release, if available.
 
 
 #### With system pdfium
@@ -141,7 +142,12 @@ You can also install pypdfium2 with a self-compiled pdfium shared library, by pl
 
 This project comes with two scripts to automate the build process: `build_toolchained.py` and `build_native.py` (in `setupsrc/`).
 - `build_toolchained` is based on the build instructions in pdfium's Readme, and uses Google's toolchain (this means foreign binaries and sysroots). This results in a heavy checkout process that may take a lot of time and space. Dependency libraries are vendored. An advantage of the toolchain is its powerful cross-compilation support (including symbol reversioning).
-- `build_native` is an attempt to address some shortcomings of the toolchained build. It performs a lean, self-managed checkout, and is tailored towards native compilation. It uses system tools and libraries (including the system's GCC compiler), which must be installed by the caller beforehand. This script should theoretically work on arbitrary Linux architectures. As a drawback, this process is not supported or even documented upstream, so it might be hard to maintain.
+- `build_native` is an attempt to address some shortcomings of the toolchained build. It performs a lean, self-managed checkout, and is tailored towards native compilation. It uses system dependencies (compiler/gn/ninja), which must be installed by the caller beforehand. This script should theoretically work on arbitrary Linux architectures. As a drawback, this process is not supported or even documented upstream, so it might be hard to maintain.
+
+> [!TIP]
+> The native sourcebuild can either use system libraries, or pdfium's vendored libraries.
+> When invoked directly, by default, system libraries need to be installed. However, when invoked through fallback setup (`PDFIUM_PLATFORM=fallback`), vendored libraries will be used.<br>
+> The `--vendor ...` and `--no-vendor ...` options can be used to control vendoring on a per-library basis. See `build_native.py --help` for details.
 
 You can also set `PDFIUM_PLATFORM` to `sourcebuild-native` or `sourcebuild-toolchained` to trigger either build script through setup, and pass command-line flags with `$BUILD_PARAMS`.
 However, for simplicity, both scripts/subtargets share just `sourcebuild` as staging directory.
@@ -179,17 +185,6 @@ python ./setupsrc/build_native.py --compiler clang
 ```bash
 # Install
 PDFIUM_PLATFORM="sourcebuild" python -m pip install -v .
-```
-
-Note, on *some* platforms, you might also need symlinks for GCC, e.g.:
-```bash
-PREFIX=$(python ./utils/get_gcc_prefix.py)  # in pypdfium2 dir
-GCC_DIR="/usr"  # or e.g. /opt/rh/gcc-toolset-14/root
-sudo ln -s $GCC_DIR/bin/gcc $GCC_DIR/bin/$PREFIX-gcc
-sudo ln -s $GCC_DIR/bin/g++ $GCC_DIR/bin/$PREFIX-g++
-sudo ln -s $GCC_DIR/bin/nm $GCC_DIR/bin/$PREFIX-nm
-sudo ln -s $GCC_DIR/bin/readelf $GCC_DIR/bin/$PREFIX-readelf
-sudo ln -s $GCC_DIR/bin/ar $GCC_DIR/bin/$PREFIX-ar
 ```
 
 > [!NOTE]
@@ -253,16 +248,18 @@ Sourcebuild can be run through cibuildwheel. For targets configured in our [`pyp
 ```bash
 CIBW_BUILD="cp311-manylinux_x86_64" cibuildwheel
 ```
+A more involved use case could look like this:
+```bash
+CIBW_BUILD="cp310-musllinux_s390x" CIBW_ARCHS=s390x CIBW_CONTAINER_ENGINE=podman TEST_PDFIUM=1 cibuildwheel
+```
 See also our [cibuildwheel](.github/workflows/cibw.yaml) [workflow](.github/workflows/cibw_one.yaml).
 For more options, see the [upstream documentation](https://cibuildwheel.pypa.io/en/stable/options).
 
-On Linux, this will use the native sourcebuild, and pull in dependencies from the container via `auditwheel repair`.
+On Linux, this will use the native sourcebuild with vendored dependency libraries.
 On Windows and macOS, the toolchained sourcebuild is used.
 
-On Linux, non-native architectures can theoretically be built under emulation, which seems to be cibuildwheel's standard albeit really unfortunate approach to this problem (however, see the note below on cross-compiling without cibuildwheel).
-On the other hand, for Windows `arm64` and `x86`, cibuildwheel supports cross-compilation.
-
-Note, for Linux, cibuildwheel requires Docker. On the author's version of Fedora, it can be installed as follows:
+Note, for Linux, cibuildwheel requires Docker, or Podman.
+On the author's version of Fedora, Docker can be installed as follows:
 ```bash
 sudo dnf in moby-engine  # this provides the docker command
 sudo systemctl start docker
@@ -280,13 +277,13 @@ For other ways of installing Docker, refer to the cibuildwheel docs ([Setup](htt
 
 > [!TIP]
 > pdfium itself has first-class cross-compilation support.
-> In particular, for Linux architectures supported by upstream's toolchain but not available natively on CI, we recommend to forego cibuildwheel and cross-package pypdfium2 instead, e.g.:
+> In particular, for Linux architectures supported by upstream's toolchain but not available natively on CI, we recommend to forego cibuildwheel, and instead cross-build pdfium using its own toolchain, e.g.:
 > ```bash
-> # assuming gcc cross-compilation packages are installed
+> # assuming cross-compilation dependencies are installed
 > python setupsrc/build_toolchained.py --target-cpu arm
 > PDFIUM_PLATFORM=sourcebuild CROSS_TAG="manylinux_2_17_armv7l" python -m build -wxn
 > ```
-> However, cibuildwheel emulation may be a *quick & dirty* way to build for those architectures not handled upstream yet.
+> This typically achieves a lower glibc requirement than we can with cibuildwheel.
 
 
 #### With caller-provided data files
@@ -474,7 +471,7 @@ Here are some examples of using the support model API.
   import pypdfium2.raw as pdfium_c
   ```
 
-* Open a PDF using the helper class `PdfDocument` (supports file path strings, bytes, and byte streams)
+* Open a PDF using the helper class `PdfDocument` (supports file paths as string or `pathlib.Path`, or file content as bytes or byte stream)
   ```python
   pdf = pdfium.PdfDocument("./path/to/document.pdf")
   version = pdf.get_version()  # get the PDF standard version
@@ -727,7 +724,7 @@ Nonetheless, the following guide may be helpful to get started with the raw API,
   ```python
   # (Assuming `buffer_ptr` is a pointer to the first item of a C buffer to write into,
   #  `size` the number of bytes it can store, and `py_buffer` a Python byte buffer)
-  buffer = (ctypes.c_char * size).from_address( ctypes.addressof(buffer_ptr.contents) )
+  buffer = (ctypes.c_ubyte * size).from_address( ctypes.addressof(buffer_ptr.contents) )
   # Read from the Python buffer, starting at its current position, directly into the C buffer
   # (until the target is full or the end of the source is reached)
   n_bytes = py_buffer.readinto(buffer)  # returns the number of bytes read
@@ -769,9 +766,9 @@ Nonetheless, the following guide may be helpful to get started with the raw API,
     
     def __call__(self, _, position, buffer_ptr, size):
         # Write data from Python buffer into C buffer, as explained before
-        buffer_ptr = ctypes.cast(buffer_ptr, ctypes.POINTER(ctypes.c_char * size))
+        c_buffer = (ctypes.c_ubyte * size).from_address( ctypes.addressof(buffer_ptr.contents) )
         self.py_buffer.seek(position)
-        self.py_buffer.readinto(buffer_ptr.contents)
+        self.py_buffer.readinto(c_buffer)
         return 1  # non-zero return code for success
   
   # (Assuming py_buffer is a Python file buffer, e. g. io.BufferedReader)
@@ -1131,8 +1128,8 @@ This results in pypdfium2 being part of a large dependency tree.
 * [Tim Head](https://github.com/betatim): Original idea for Python bindings to PDFium with ctypesgen in `wowpng`.
 * [Adam Huganir](https://github.com/adam-huganir): Help with maintenance and development decisions since the beginning of the project.
 * [Christian Heimes](https://github.com/tiran): RPM packaging for pdfium. Showing how to build pdfium natively without Google's toolchain.
-* [Marvin Gießing](https://github.com/mgiessing): Investigation on building PDFium for an unhandled Linux architecture (ppc64le).
-* [wojiushixiaobai](https://github.com/wojiushixiaobai): Helpful pointers and draft workflow for cibuildwheel. Supporting exotic architectures via emulation (pulling in dependencies with auditwheel).
+* [Marvin Gießing](https://github.com/mgiessing): Investigation on building PDFium for a then unhandled Linux architecture (ppc64le).
+* [wojiushixiaobai](https://github.com/wojiushixiaobai): Helpful pointers and draft workflow for cibuildwheel. Supporting extra Linux architectures via emulated containers.
 * [kobaltcore](https://github.com/kobaltcore): Bug fix for `PdfDocument.save()`.
 * [Anderson Bravalheri](https://github.com/abravalheri): Help with PEP 517/518 compliance. Hint to use an environment variable rather than separate setup files.
 * [Bastian Germann](https://github.com/bgermann): Help with inclusion of licenses for third-party components of PDFium.

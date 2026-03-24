@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 geisserml <geisserml@gmail.com>
+# SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
 name: Sourcebuild
@@ -24,9 +24,6 @@ on:
       py_version:
         type: string
         default: '3.12'
-      glibc_tag:
-        type: string
-        default: 'manylinux_2_17'
 
 jobs:
   
@@ -35,7 +32,7 @@ jobs:
     uses: ./.github/workflows/sbuild_one.yaml
     with:
       os: ubuntu-latest
-      tag: ${{ inputs.glibc_tag }}_x86_64
+      tag: manylinux_2_17_x86_64.manylinux2014_x86_64
       py_version: ${{ inputs.py_version }}
   
   linux_x86:
@@ -44,7 +41,7 @@ jobs:
     with:
       os: ubuntu-latest
       target_cpu: x86
-      tag: ${{ inputs.glibc_tag }}_i686
+      tag: manylinux_2_17_i686.manylinux2014_i686
       py_version: ${{ inputs.py_version }}
   
   linux_arm64:
@@ -53,7 +50,7 @@ jobs:
     with:
       os: ubuntu-latest
       target_cpu: arm64
-      tag: ${{ inputs.glibc_tag }}_aarch64
+      tag: manylinux_2_17_aarch64.manylinux2014_aarch64
       py_version: ${{ inputs.py_version }}
   
   linux_native_arm64:
@@ -71,7 +68,7 @@ jobs:
     with:
       os: ubuntu-latest
       target_cpu: arm
-      tag: ${{ inputs.glibc_tag }}_armv7l
+      tag: manylinux_2_17_armv7l.manylinux2014_armv7l
       py_version: ${{ inputs.py_version }}
   
   linux_ppc64le:
@@ -79,8 +76,8 @@ jobs:
     uses: ./.github/workflows/sbuild_one.yaml
     with:
       os: ubuntu-latest
-      target_cpu: ppc64le
-      tag: ${{ inputs.glibc_tag }}_ppc64le
+      target_cpu: ppc64
+      tag: manylinux_2_17_ppc64le.manylinux2014_ppc64le
       py_version: ${{ inputs.py_version }}
   
   macos_cross_x64:
@@ -107,6 +104,7 @@ jobs:
     uses: ./.github/workflows/sbuild_one.yaml
     with:
       os: macos-15-intel
+      tag: macosx_11_0_x86_64
       py_version: ${{ inputs.py_version }}
   
   macos_cross_arm64:

@@ -1,10 +1,81 @@
-<!-- SPDX-FileCopyrightText: 2025 geisserml <geisserml@gmail.com> -->
+<!-- SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com> -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
 <!-- MyST Syntax -->
 
 
 # Changelog
+
+
+## 5.6.0 (2026-03-08)
+
+- Updated pdfium-binaries from `7690` to `7713`. Native and toolchained sourcebuild use pdfium `7191`.
+- In our cibuildwheel workflow, all targets now exercise pypdfium2's test suite. This is implemented as a custom post-cibuildwheel step, using Debian 13 or Alpine 3 containers, respectively. Note, there are known test failures on s390x and musllinux_armv7l (but we still provide builds). In particular, on s390x, opening password-protected PDFs is broken. s390x is "use at own risk"; there is absolutely no warranty.
+- Other workflow and cibuildwheel config improvements.
+
+
+## 5.5.0 (2026-02-18)
+
+- Updated pdfium-binaries from `7665` to `7690`. Native and toolchained sourcebuild use pdfium `7191`.
+- Windows-only members are now included in bindings where applicable. Thanks to `NullYing` for an incentive to fix this.
+  Callers who want to use this API, note: it is strongly recommended that you `ctypes.cast()` the HDC object created on your side to our internal `pypdfium2.raw.HDC` before passing it into `FPDF_RenderPage()` to ensure compatible types regardless of how the bindings were generated.
+- `build_native.py` improvements
+  * `--reset` now does `git restore .` rather than `git reset --hard`. This might be more efficient.
+  * When `--test` is given, honor the unittests' return code. Suppress a musl-specific failure. Fixed `pdfium_unittests` not running on musl with clang by applying a build patch.
+  * Added `--clang-as-gcc` option to build with clang while pretending to pdfium's build system it were gcc. This mode is now used to build for `s390x` with static clang.
+- Bumped static clang from `21.1.6.0` to `21.1.8.1`.
+- On Windows and macOS, fallback setup now uses the toolchained sourcebuild.
+- Made a textpage test case more tolerant, as pdfium update has changed the result.
+
+
+## 5.4.0 (2026-02-08)
+
+- Updated pdfium-binaries from `7616` to `7665`. Native and toolchained sourcebuild use pdfium `7191`.
+
+
+## 5.3.0 (2026-01-05)
+
+- Updated pdfium-binaries from `7568` to `7616`. Native and toolchained sourcebuild use pdfium `7191`.
+- Fixed inclusion of `loongarch64` build in GH attestation. This was an oversight in the workflow.
+- `ppc64le (glibc)` is now built at pdfium-binaries using upstream's tooling.
+  This means pypdfium2's conda builds now also support this platform.
+  Updated pypdfium2's setup/workflow accordingly to use the pdfium-binaries.
+
+
+## 5.2.0 (2025-12-12)
+
+- Updated pdfium-binaries from `7557` to `7568`. Native and toolchained sourcebuild use pdfium `7191`.
+- Added new builds `android_{arm64_v8a,armeabi_v7a}`, `{many,musl}linux_{ppc64le,riscv64,loongarch64}` and `musllinux_armv7l` to the release process. This greatly improves platform support. Loongarch is only uploaded to GH, as PyPI doesn't accept it yet. Replaced `musllinux_{x86_64,aarch64,i686}` with our own builds, as they are a bit smaller than the pdfium-binaries.
+- Build `s390x` this once through emulated gcc, because static clang doesn't seem to produce working builds for this target. We may not be able to continue doing this.
+- `build_native.py`: Added full dependency library vendoring abilities. This is now the default behavior on fallback setup. Integrated ninja/gn bootstrapping helpers.
+- CIBW workflow: Use vendored libraries for most Linux targets. Build `ppc64le, riscv64, loongarch64` (and theoretically `s390x`) using static clang that runs on the host architecture (even though from within an emulated container), while being pre-configured for cross-compilation to the target architecture. This is much faster than building with an emulated compiler. Many thanks to Matthieu Darbois (mayeut) of pypa/manylinux for coming up with this approach.
+- Greatly simplified verification of pdfium-binaries attestation in pypdfium2's setup. Thanks to Benoît Blanchon for attaching the attestation as artifact.
+- Enabled immutability for pypdfium2's GitHub releases, and added build provenance attestations, like pdfium-binaries did.
+
+
+## 5.2.0b1 (2025-12-02)
+
+- Updated PDFium from `7529` to `7557`.
+- See the beta release notes on GitHub [here](https://github.com/pypdfium2-team/pypdfium2/releases/tag/5.2.0b1)
+
+
+## 5.1.0 (2025-11-23)
+
+- Updated PDFium from `7483` to `7529`.
+- Added new helpers `textpage.get_textobj()`, `PdfTextObj` and `PdfFont`.
+  These helpers currently just cover font info and object-level text extraction, but may be extended in the future.
+  For objects of type `FPDF_PAGEOBJ_TEXT`, `PdfPage.get_objects()` and the `PdfObject` constructor will now return `PdfTextObj` rather than just `PdfObject` instances.
+  Thanks to Mykola Skrynnyk for the initial proposal.
+  <!-- See #392, #391, #358, #325 -->
+- Rolled back `musllinux` tag from `1_2` to `1_1`. This was erroneously incremented shortly before `5.0.0`, but the pdfium-binaries do still run on `musllinux_1_1`, probably because they're statically linked.
+- `build_toolchained`: Significant portability enhancements. Should now work on Linux CPUs that are unhandled/incomplete upstream (e.g. `aarch64`). Also, building on Windows arm64 natively may now work. Added ability to cross-compile `ppc64le` from `x86_64`. Removed `--use-syslibs` option (use `build_native` instead).
+- `build_native`: Fixed Python 3.6/3.7 compatibility. Added `--no-libclang-rt` option.
+- Setup: Fixed inclusion of `BUILD_LICENSES/` sub-directories. Added extra licenses for DLLs pulled in by auditwheel. This concerns sourcebuilds/cibuildwheel only. The wheels on PyPI are unaffected.
+- Added android targets to `sbuild.yaml` workflow. This does not impact releases, which still use the pdfium-binaries.
+- Added i686 (manylinux and musllinux) to cibuildwheel workflow.
+  Use an arm64 host (GHA `ubuntu-24.04-arm`) for armv7l builds, which is much faster than with an `x86_64` host. Added armv7l manylinux target (previously just musllinux).
+  This does not impact releases yet, but it may in the future.
+- CI: Migrated from `macos-13` to `macos-15-intel`.
 
 
 ## 5.0.0 (2025-10-26)

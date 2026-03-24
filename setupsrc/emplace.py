@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# SPDX-FileCopyrightText: 2025 geisserml <geisserml@gmail.com>
+# SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
 import os
@@ -42,7 +42,8 @@ def _get_pdfium_with_cache(pl_name, req_ver, req_flags):
     
     # build_pdfium_bindings() has its own cache logic, so always call to ensure bindings match
     ct_paths = (DataDir/Host.platform/CTG_LIBPATTERN, ) if pl_name == Host.platform else ()
-    build_pdfium_bindings(req_ver, flags=req_flags, ct_paths=ct_paths)
+    windows_cross = pl_name.startswith(SysNames.windows+"_")
+    build_pdfium_bindings(req_ver, flags=req_flags, ct_paths=ct_paths, windows_cross=windows_cross)
 
 def _end_subtargets(sub_target, pdfium_ver):
     if sub_target:
@@ -53,8 +54,8 @@ def _end_subtargets(sub_target, pdfium_ver):
             raise ValueError(f"Pdfium version {pdfium_ver} was passed, but this does not make sense with caller-provided data files.")
 
 
-def stage_platfiles(pl_name, sub_target, pdfium_ver, flags):
-        
+def stage_platfiles(pl_name, sub_target, pdfium_ver, flags, default_build_params=""):
+    
     if pl_name == ExtPlats.system:
         pl_dir = DataDir/pl_name
         if sub_target:
@@ -64,7 +65,7 @@ def stage_platfiles(pl_name, sub_target, pdfium_ver, flags):
             full_ver = system_pdfium.main(full_ver, flags=flags)
         elif sub_target == "generate":
             assert pdfium_ver, "system-generate target requires pdfium build version from caller"
-            build_pdfium_bindings(pdfium_ver, flags=flags, guard_symbols=True, rt_paths=())
+            build_pdfium_bindings(pdfium_ver, flags=flags, guard_symbols=True, windows_cross=True, rt_paths=())
             shutil.copyfile(BindingsFile, pl_dir/BindingsFN)
             full_ver = PdfiumVer.to_full(pdfium_ver)
             write_pdfium_info(pl_dir, full_ver, origin="system-generate", flags=flags)
@@ -75,10 +76,10 @@ def stage_platfiles(pl_name, sub_target, pdfium_ver, flags):
         if flags:
             log(f"sourcebuild: flags {flags!r} are not handled (will be discarded).")
         
-        build_params = shlex.split( os.getenv("BUILD_PARAMS", "") )
-        builder = dict(native=build_native, toolchained=build_toolchained).get(sub_target)
-        if builder:
-            build_params = vars(builder.parse_args(build_params))
+        if sub_target:
+            builder = dict(native=build_native, toolchained=build_toolchained)[sub_target]
+            build_params_env = shlex.split( os.getenv("BUILD_PARAMS", default_build_params) )
+            build_params = vars(builder.parse_args(build_params_env))
             build_params.update(dict(build_ver=pdfium_ver))
             log(build_params)
             builder.main(**build_params)
@@ -89,14 +90,19 @@ def stage_platfiles(pl_name, sub_target, pdfium_ver, flags):
         pl_name = ExtPlats.system
         try:
             stage_platfiles(pl_name, "search", pdfium_ver, flags)
-        except system_pdfium.PdfiumNotFoundError:
-            log("Could not find system pdfium, will attempt native sourcebuild")
+        except system_pdfium.PdfiumNotFoundError as e:
+            log(f"{type(e).__name__}: {e}")
+            log("-> Could not find system pdfium, will attempt sourcebuild")
             pl_name = ExtPlats.sourcebuild
             try:
-                stage_platfiles(pl_name, "native", pdfium_ver, flags)
-            except Exception:
-                traceback.print_exc()
-                raise RuntimeError("sourcebuild-native failed. Manual action may be needed, such as installing system dependencies, or possibly patching the sources. See pypdfium2's README.md for more information.")
+                if sys.platform.startswith(("win32", "darwin")):
+                    stage_platfiles(pl_name, "toolchained", pdfium_ver, flags)
+                else:
+                    install_buildtools()
+                    stage_platfiles(pl_name, "native", pdfium_ver, flags, "--vendor all --no-vendor libc++ --no-libclang-rt")
+            except Exception as e:
+                log(f"{type(e).__name__}: {e}")
+                raise RuntimeError("-> sourcebuild failed. Manual action may be needed, such as installing system dependencies, or possibly patching the sources. See pypdfium2's README.md for more information.")
     
     else:
         if not pdfium_ver or pdfium_ver == "pinned":

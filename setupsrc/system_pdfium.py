@@ -1,4 +1,5 @@
-# SPDX-FileCopyrightText: 2025 geisserml <geisserml@gmail.com>
+#! /usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
 # NOTE: This code is provided on a best effort basis. It is relatively hard for us to test.
@@ -71,7 +72,7 @@ def _get_sys_pdfium_ver(pdfium_lib):
 
 def _yield_lo_candidates(system):
     lo_paths_iter = itertools.product(
-        (Host.usr/"lib", Host.usr/"local"/"lib"), ("", "64")
+        (Host.usr/"lib", Host.usr/"local"/"lib"), ("64", "")
     )
     libname = libname_for_system(system, name="pdfiumlo")
     yield from (

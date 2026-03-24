@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 geisserml <geisserml@gmail.com>
+# SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
 import re
@@ -152,7 +152,8 @@ def test_get_text_bounded_defaults_with_rotation():
     textpage = page.get_textpage()
     
     text = textpage.get_text_bounded()
-    assert len(text) == 438
+    # used to be 438, changed to 447 in pdfium 7678 - use tolerance span
+    assert 430 < len(text) < 460
 
 
 @pytest.mark.parametrize(

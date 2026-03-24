@@ -1,4 +1,4 @@
-.. SPDX-FileCopyrightText: 2025 geisserml <geisserml@gmail.com>
+.. SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 .. SPDX-License-Identifier: CC-BY-4.0
 
 Python API
@@ -72,6 +72,7 @@ Due to limitations in :mod:`weakref`, finalizers can only be attached to wrapper
 Version
 *******
 .. automodule:: pypdfium2.version
+.. automodule:: pypdfium2_raw.version
 
 Document
 ********

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 geisserml <geisserml@gmail.com>
+# SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
 name: Conda packaging
@@ -27,6 +27,9 @@ on:
       py_version:
         default: '3.12'
         type: string
+      ref:
+        default: ''
+        type: string
 
 # This is required for setup-miniconda / conda init
 # see https://github.com/conda-incubator/setup-miniconda#important
@@ -49,15 +52,19 @@ jobs:
         with:
           auto-update-conda: true
           python-version: ${{ inputs.py_version }}
-          channels: pypdfium2-team,bblanchon
+          # priority: highest to lowest
+          # https://github.com/conda-incubator/setup-miniconda/blob/3afdf12ae89a97ee81acc85f1490189fba144938/README.md#example-4-conda-options
+          channels: pypdfium2-team,bblanchon,defaults
           channel-priority: strict
+          show-channel-urls: true
       
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.repository }}
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ inputs.ref || github.ref_name }}
       
       - name: Prepare
         run: |
@@ -75,7 +82,7 @@ jobs:
           MAYBE_NEW_ONLY: ${{ inputs.package == 'raw' && inputs.new_only && '--new-only' || '' }}
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: conda_package
           path: conda/${{ inputs.package }}/out/
@@ -97,19 +104,21 @@ jobs:
     steps:
       
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.repository }}
           persist-credentials: false
+          ref: ${{ inputs.ref || github.ref_name }}
       
       - name: Miniconda setup
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: ${{ matrix.py }}
+          channels: defaults
       
       - name: Download artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: conda_package
           path: conda_dist/
@@ -149,14 +158,14 @@ jobs:
         with:
           auto-update-conda: true
           python-version: ${{ matrix.py }}
-          channels: pypdfium2-team,bblanchon
+          channels: pypdfium2-team,bblanchon,defaults
           channel-priority: strict
       
       - name: Install deps
         run: conda install -y anaconda-client
       
       - name: Download artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: conda_package
           path: conda_dist/

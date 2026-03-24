@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 geisserml <geisserml@gmail.com>
+# SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
 import sys
@@ -147,8 +147,15 @@ def test_bitmap_makers_to_images(mode_str, rev_byteorder):
     # pdf.save(OutputDir / f"bitmap_makers_imgs_{mode_str}_{rev_byteorder}.pdf")
 
 
+@pytest.mark.skipif(not sys.platform.startswith("win32"), reason="Windows-only API")
+def test_windows_only_pdfium_api_available():
+    assert hasattr(pdfium_c, "FPDF_RenderPage")
+    assert hasattr(pdfium_c, "FPDF_SetPrintMode")
+    assert hasattr(pdfium_c, "HDC")  # dependency pulled in from windows.h
+
+
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="libc_ver/musl test only makes sense on linux")
-def test_musllinux_api_available():
+def test_musllinux_packaging_api_available():
     
     # Test availability of the non-public API we use to detect musllinux on setup.
     # `packaging` is a pretty fundamental package so expect it to be installed

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 geisserml <geisserml@gmail.com>
+# SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
 name: Sourcebuild One
@@ -21,7 +21,13 @@ on:
         default: ''
       test:
         type: boolean
-        default: null
+        default: false
+      branch:
+        type: string
+        default: ''
+      repo_tag:
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       os:
@@ -41,7 +47,13 @@ on:
         default: ''
       test:
         type: boolean
-        default: null
+        default: false
+      branch:
+        type: string
+        default: ''
+      repo_tag:
+        type: string
+        default: ''
 
 defaults:
   run:
@@ -60,14 +72,28 @@ jobs:
           python-version: ${{ inputs.py_version }}
       
       - name: Check out pypdfium2 repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.repository }}
           persist-credentials: false
           fetch-depth: 0  # for git describe
+          ref: ${{ inputs.branch || github.ref_name }}
+      
+      - name: Create pypdfium2 tag (optional)
+        if: ${{ inputs.repo_tag }}
+        run: |
+          git config user.email "geisserml@gmail.com"
+          git config user.name "geisserml"
+          git tag -a "$REPO_TAG" -m "Autorelease"
+        env:
+          REPO_TAG: ${{ inputs.repo_tag }}
       
       - name: Install Python deps
         run: python3 -m pip install -U -r req/setup.txt -r req/test.txt
+      
+      - name: Update package list
+        if: ${{ startsWith(inputs.os, 'ubuntu') && (inputs.target_cpu || endsWith(inputs.os, '-arm')) }}
+        run: sudo apt-get update
       
       - name: Install Linux/Android cross deps
         if: ${{ startsWith(inputs.os, 'ubuntu') && inputs.target_cpu }}
@@ -111,7 +137,7 @@ jobs:
           python3 -m auditwheel show dist/*.whl
       
       - name: Upload wheel as artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           path: ./dist/*.whl
           name: sbuild_${{ inputs.target_os || inputs.os }}${{ inputs.target_cpu && format('_{0}', inputs.target_cpu) }}

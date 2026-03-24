@@ -1,21 +1,14 @@
-<!-- SPDX-FileCopyrightText: 2025 geisserml <geisserml@gmail.com> -->
+<!-- SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com> -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
 <!-- List character: dash (-) -->
 
 # Changelog for next release
-
-- Added new helpers `textpage.get_textobj()`, `PdfTextObj` and `PdfFont`.
-  These helpers currently just cover font info and object-level text extraction, but may be extended in the future.
-  For objects of type `FPDF_PAGEOBJ_TEXT`, `PdfPage.get_objects()` and the `PdfObject` constructor will now return `PdfTextObj` rather than just `PdfObject` instances.
-  Thanks to Mykola Skrynnyk for the initial proposal.
-  <!-- See #392, #391, #358, #325 -->
-- Rolled back `musllinux` tag from `1_2` to `1_1`. This was erroneously incremented shortly before `5.0.0`, but the pdfium-binaries do still run on `musllinux_1_1`, probably because they're statically linked.
-- `build_toolchained`: Significant portability enhancements. Should now work on Linux CPUs that are unhandled/incomplete upstream (e.g. `aarch64`). Also, building on Windows arm64 natively may now work. Added ability to cross-compile `ppc64le` from `x86_64`. Removed `--use-syslibs` option (use `build_native` instead).
-- `build_native`: Fixed Python 3.6/3.7 compatibility. Added `--no-libclang-rt` option.
-- Setup: Fixed inclusion of `BUILD_LICENSES/` sub-directories. Added extra licenses for DLLs pulled in by auditwheel. This concerns sourcebuilds/cibuildwheel only. The wheels on PyPI are unaffected.
-- Added android targets to `sbuild.yaml` workflow. This does not impact releases, which still use the pdfium-binaries.
-- Added i686 (manylinux and musllinux) to cibuildwheel workflow.
-  Use an arm64 host (GHA `ubuntu-24.04-arm`) for armv7l builds, which is much faster than with an `x86_64` host. Added armv7l manylinux target (previously just musllinux).
-  This does not impact releases yet, but it may in the future.
-- CI: Migrated from `macos-13` to `macos-15-intel`.
+- `build_native.py`: When GCC is used, we now declare a `custom_toolchain`, with environment passthrough.
+   * First, this avoids inconsistency across different platforms in pdfium's build config, with some expecting just `gcc` and others an arch-prefixed variant. This makes `build_native.py` more likely to work out of the box, relieving callers from the necessity to create symlinks, including our internal cibuildwheel callers.
+   * Second, this allows you to use a different version of GCC, or in fact any other compatible compiler, including clang, by setting `CC`, `CXX` and `TOOLPREFIX`.
+     This makes `--clang-as-gcc` more straightforward to implement.
+   * Also, extra `CFLAGS`, `CPPFLAGS`, `CXXFLAGS` and `LDFLAGS` are now honored in this build mode.
+- Basic FreeBSD CI added, powered by `cross-platform-actions`.
+- On (Free)BSD with libreoffice-pdfium, pre-load implicit dependency libraries with `mode=RTLD_GLOBAL` to fix library loading.
+- Split off `pypdfium2_raw/version.py` from `pypdfium2/version.py`, so that `PDFIUM_INFO` is now available from within `pypdfium2_raw`. This was a pre-requisite to implement the above FreeBSD workaround.

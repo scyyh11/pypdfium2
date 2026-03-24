@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 geisserml <geisserml@gmail.com>
+# SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
 __all__ = ("PdfPage", "PdfColorScheme")
@@ -443,7 +443,7 @@ class PdfPage (pdfium_i.AutoCloseable):
             * ``fill_color[3] < 255``: ``BGRA`` (background color with transparency)
             * ``force_bitmap_format=...`` -> any supported by pdfium
             
-            Additionally, *rev_byteorder* will swap ``BGR{A/x}`` to ``RGB{A/x}`` if applicable.
+            Additionally, ``rev_byteorder=True`` will swap ``BGR{A/x}`` to ``RGB{A/x}`` if applicable.
         
         .. [#user_unit] Since PDF 1.6, pages may define an additional user unit factor. In this case, 1 canvas unit is equivalent to ``user_unit * (1/72)`` inches. PDFium does not currently provide an API to get the user unit, so this is not taken into account.
         """
